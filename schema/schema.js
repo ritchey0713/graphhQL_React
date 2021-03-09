@@ -1,20 +1,47 @@
 const graphql = require("graphql");
-const _ = require("lodash");
+const axios = require("axios");
 
-const { GraphQLObjectType, GraphQLString, GraphQLInt, GraphQLSchema } = graphql;
+const {
+  GraphQLObjectType,
+  GraphQLString,
+  GraphQLInt,
+  GraphQLSchema,
+  GraphQLList,
+} = graphql;
 
-const users = [
-  { id: "23", firstName: "John", age: 30 },
-  { id: "44", firstName: "Sally", age: 22 },
-];
+const CompanyType = new GraphQLObjectType({
+  name: "Company",
+  // setting fields to func is how to get bidirectional acces from users to companies
+  fields: () => ({
+    id: { type: GraphQLString },
+    name: { type: GraphQLString },
+    description: { type: GraphQLString },
+    users: {
+      type: new GraphQLList(UserType),
+      resolve(parentVal, args) {
+        return axios
+          .get(`http://localhost:3000/companies/${parentVal.id}/users`)
+          .then((resp) => resp.data);
+      },
+    },
+  }),
+});
 
 const UserType = new GraphQLObjectType({
   name: "User",
-  fields: {
+  fields: () => ({
     id: { type: GraphQLString },
     firstName: { type: GraphQLString },
     age: { type: GraphQLInt },
-  },
+    company: {
+      type: CompanyType,
+      resolve(parentVal, args) {
+        return axios
+          .get(`http://localhost:3000/companies/${parentVal.companyId}`)
+          .then((resp) => resp.data);
+      },
+    },
+  }),
 });
 
 const RootQuery = new GraphQLObjectType({
@@ -24,7 +51,18 @@ const RootQuery = new GraphQLObjectType({
       type: UserType,
       args: { id: { type: GraphQLString } },
       resolve(parentVal, args) {
-        return _.find(users, { id: args.id });
+        return axios
+          .get(`http://localhost:3000/users/${args.id}`)
+          .then((resp) => resp.data);
+      },
+    },
+    company: {
+      type: CompanyType,
+      args: { id: { type: GraphQLString } },
+      resolve(parentVal, args) {
+        return axios
+          .get(`http://localhost:3000/companies/${args.id}`)
+          .then((resp) => resp.data);
       },
     },
   },
